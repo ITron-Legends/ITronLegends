@@ -1,5 +1,6 @@
 ### Hi there 👋
-
+## just building random things from python/html. 
+you don't need to know anything about me 
 <!--
 **ITronlegendsoffical/ITronlegendsoffical** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
