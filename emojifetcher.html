@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dark Grey Background</title>
+  <style>
+    body{background-color:#333;color:#fff;font-family:Arial,sans-serif;margin:0;padding:0}.container{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh}.code-box,.terminal-box{background-color:#222;padding:20px;border-radius:5px;margin-bottom:20px;text-align:center;width:80%;max-width:500px}.code-box textarea{border:none;background-color:transparent;color:#fff;font-family:Arial,sans-serif;font-size:14px;resize:none;width:100%}.terminal-box textarea{border:none;background-color:transparent;color:#fff;font-family:Arial,sans-serif;font-size:14px;width:100%;height:100px;outline:none;resize:none}.button-container{display:flex;justify-content:center}.button{display:inline-block;padding:10px 20px;background-color:#8800cc;color:#fff;font-size:18px;font-weight:bold;border-radius:10px;text-decoration:none;margin:0 10px;cursor:pointer;border:none}.button:hover{background-color:#660099}.reset-button{background-color:green}.reset-button:hover{background-color:#006400}
+    #terminal-output::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    #terminal-output::-webkit-scrollbar-track {
+      background: #222;
+      border-radius: 10px;
+    }
+
+    #terminal-output::-webkit-scrollbar-thumb {
+      background-color: #8800cc;
+      border-radius: 10px;
+    }
+  </style>
+  <style>
+  /* Existing styles */
+
+  /* Scrollbar styles */
+  #instructions::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  #instructions::-webkit-scrollbar-track {
+    background: #222;
+    border-radius: 10px;
+  }
+
+  #instructions::-webkit-scrollbar-thumb {
+    background-color: #8800cc;
+    border-radius: 10px;
+  }
+
+  /* Text size */
+  #instructions {
+    font-size: 18px;
+  }
+</style>
+
+</head>
+<body>
+    <div class="container">
+    <h1>Discord Emoji Stealer</h1>
+    <div class="code-box">
+      <textarea id="instructions" rows="5" cols="30" readonly>
+Hello! Welcome to Emoji Stealer!
+How to steal Emojis? 
+1. Copy emoji message. 
+2. Paste it in the box below.
+3. The magic should happen! 
+Currently supported features:
+Animated Emojis.
+Static Emojis.
+      </textarea>
+    </div>
+  <div class="container">
+    <div class="code-box">
+      <textarea id="code-input" rows="20" cols="50" placeholder="Put the copied emoji message into here."></textarea>
+    </div>
+    <div class="terminal-box">
+      <textarea id="terminal-output" placeholder="The Emoji Information will be shown here." readonly></textarea><br>
+      <div id="emoji-images"></div>
+    </div>
+    <div class="button-container">
+      <button class="button" onclick="extractNumbersAndNames()">Steal emoji!</button>
+      <button class="button reset-button" onclick="reset()">Reset</button>
+    </div>
+  </div>
+  <script>
+    function extractNumbersAndNames() {
+      const input = document.getElementById('code-input').value;
+      const regex = /<(a?):(.*?):(\d+)>/g;
+      const matches = [...input.matchAll(regex)];
+
+      if (matches.length > 0) {
+        let output = '';
+        for (let i = 0; i < matches.length; i++) {
+          const match = matches[i];
+          const isAnimated = match[1] === 'a';
+          const name = match[2];
+          const number = match[3];
+
+          output += `Emoji ${i + 1}: \n`;
+          output += `Emoji ID: ${number}\n`;
+          output += `Emoji Name: ${name}\n`;
+          output += `Is Animated? ${isAnimated ? 'Yes' : 'No'}\n\n`;
+        }
+
+        const terminalOutput = document.getElementById('terminal-output');
+        terminalOutput.value = output.trim();
+
+        const emojiImages = document.getElementById('emoji-images');
+        emojiImages.innerHTML = '';
+        for (let i = 0; i < matches.length; i++) {
+          const match = matches[i];
+          const isAnimated = match[1] === 'a';
+          const number = match[3];
+
+          const img = document.createElement('img');
+          img.src = `https://cdn.discordapp.com/emojis/${number}.${isAnimated ? 'gif' : 'png'}?=1`;
+          img.style.maxWidth = '200px';
+          img.style.marginTop = '10px';
+          emojiImages.appendChild(img);
+        }
+      } else {
+        const terminalOutput = document.getElementById('terminal-output');
+        terminalOutput.value = 'No valid input';
+
+        const emojiImages = document.getElementById('emoji-images');
+        emojiImages.innerHTML = '';
+      }
+    }
+
+    function reset() {
+      document.getElementById('code-input').value = '';
+      document.getElementById('terminal-output').value = '';
+      document.getElementById('emoji-images').innerHTML = '';
+    }
+  </script>
+</body>
+</html>
