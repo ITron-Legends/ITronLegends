@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Parameter Remover</title>
+    <style>
+        /* Add your CSS code here */
+        body {
+            background-color: black;
+            color: grey;
+        }
+
+        input {
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            outline: none;
+            box-shadow: inset 0 0 5px gray;
+        }
+
+        input[type=button]:hover {
+            background-color: blue;
+            color: grey;
+        }
+
+        input[type=button]:active {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <label for="urlInput">Enter URL: (discord link unfucker)</label>
+    <input type="text" id="urlInput" style="width: 80%;" placeholder="https://example.com/image.jpg?ex=1234&is=5678">
+
+    <button onclick="removeParameters()">Remove Parameters</button>
+
+    <p id="result"></p>
+
+    <button onclick="copyToClipboard()">Copy URL</button>
+
+    <script>
+        function removeParameters() {
+            const urlInput = document.getElementById('urlInput').value;
+            
+            // Create a URL object from the input string
+            let url = new URL(urlInput);
+
+            // Check if the URL has a query string
+            if (url.search) {
+                // Remove the specified parameters (in this case, everything after various file extensions)
+                if (url.pathname.endsWith('.jpg') || url.pathname.endsWith('.jpeg') || url.pathname.endsWith('.png') || url.pathname.endsWith('.gif') || url.pathname.endsWith('.bmp') || url.pathname.endsWith('.tiff') || url.pathname.endsWith('.mp4') || url.pathname.endsWith('.avi') || url.pathname.endsWith('.mkv') || url.pathname.endsWith('.mov') || url.pathname.endsWith('.wmv') || url.pathname.endsWith('.mp3') || url.pathname.endsWith('.wav') || url.pathname.endsWith('.m4a')) {
+                    url.search = '';
+                }
+
+                // Display the cleaned URL
+                document.getElementById('result').textContent = url.toString();
+            } else {
+                // If the URL has no query string, just display it as is
+                document.getElementById('result').textContent = 'URL has no parameters: ' + urlInput;
+            }
+        }
+
+        function copyToClipboard() {
+            const cleanedUrl = document.getElementById('result').textContent;
+            
+            // Create a text area element to hold the URL
+            const tempInput = document.createElement('textarea');
+            tempInput.value = cleanedUrl;
+
+            // Append the text area to the DOM
+            document.body.appendChild(tempInput);
+
+            // Select the text within the text area
+            tempInput.select();
+            tempInput.setSelectionRange(0, 99999); /* For mobile devices */
+
+            // Copy the selected text to the clipboard
+            document.execCommand('copy');
+
+            // Remove the temporary text area
+            document.body.removeChild(tempInput);
+
+            alert('URL copied to clipboard: ' + cleanedUrl);
+        }
+    </script>
+
+</body>
+</html>
