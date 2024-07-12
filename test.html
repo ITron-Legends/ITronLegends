@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"> 
+    <title>pigeon</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+      "imports": {
+        "@material/web/": "https://esm.run/@material/web/"
+      }
+    }
+    </script>
+    <script type="module">
+        import '@material/web/all.js';
+        import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+
+        document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+    </script>
+    <style>
+        body {
+            background-color: #121212; /* Dark background */
+            color: #ffffff; /* White text */
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .rounded-box {
+            max-width: 90%; /* Use 90% of the viewport width */
+            height: auto; /* Adjust height automatically */
+            background-color: #161517;
+            border-radius: 20px; /* Adjust the value to change the roundness */
+            padding: 20px;
+            text-align: left;
+            margin: 20px auto; /* Center the box */
+        }
+
+        .rounded-image {
+            border-radius: 15px; /* Adjust the value as needed */
+            width: 100%; /* Adjust the width as needed */
+            height: auto; /* Maintain aspect ratio */
+            display: block;
+            margin: 20px 0; /* Optional: Add some vertical margin for spacing */
+        }
+    </style>
+</head>
+<body>
+    <center><h1>My certifications</h1></center>
+    <div class="rounded-box">
+        <section>
+            <h2>About me!</h2>
+            <img src="https://i.imgur.com/0uNFlaw.jpeg" alt="Description of image" class="rounded-image">
+            <md-divider></md-divider>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce luctus nulla convallis urna suscipit, sit amet tincidunt ante condimentum. Donec feugiat, ligula ornare placerat dapibus, sapien ante venenatis nunc, quis lacinia nisl lorem vel urna. Curabitur ornare ante nulla, ac.</p>
+        </section>
+        <center>
+            <md-filled-tonal-button>View Certificates</md-filled-tonal-button>
+        </center>
+    </div>
+    <div class="rounded-box">
+        <section>
+            <h2>Certificates</h2>
+            <md-divider></md-divider>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce luctus nulla convallis urna suscipit, sit amet tincidunt ante condimentum. Donec feugiat, ligula ornare placerat dapibus, sapien ante venenatis nunc, quis lacinia nisl lorem vel urna. Curabitur ornare ante nulla, ac.</p>
+        </section>
+        <center>
+            <md-filled-tonal-button>View Certificates</md-filled-tonal-button>
+        </center>
+    </div>
+</body>
+</html>
