@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NextDNS Analytics – Dark Mode SPA</title>
+  <!-- Chart.js and dayjs from CDN (single-file deploy to GitHub Pages) -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/timezone.js"></script>
+  <script>dayjs.extend(dayjs_plugin_utc); dayjs.extend(dayjs_plugin_timezone);</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121823;
+      --muted: #a6b0c0;
+      --text: #e6eefc;
+      --accent: #7aa2f7;
+      --accent-2: #8bd5ca;
+      --danger: #ff6b6b;
+      --warning: #ffb86b;
+      --success: #8be9a5;
+      --border: #1e2633;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(11,15,20,.9), rgba(11,15,20,.6));
+      border-bottom: 1px solid var(--border);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 22px; margin: 0; letter-spacing: .5px; }
+
+    .controls {
+      display: grid; gap: 10px; grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-top: 10px;
+    }
+    .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input, select, button, textarea {
+      width: 100%;
+      background: #0f141d;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 12px; font-size: 14px;
+      outline: none; transition: border .2s ease;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    button { cursor: pointer; background: linear-gradient(180deg, #1a2440, #151d33); border: 1px solid #2a3a66; }
+    button:hover { filter: brightness(1.08); }
+    button.secondary { background: #0f141d; border-color: var(--border); }
+    button.ghost { background: transparent; border-color: transparent; }
+
+    .grid-3 { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+    .grid-1 { display: grid; gap: 12px; grid-template-columns: 1fr; }
+
+    .kpi { display: grid; gap: 6px; }
+    .kpi .label { font-size: 12px; color: var(--muted); }
+    .kpi .value { font-size: 22px; font-weight: 700; letter-spacing: .3px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { color: var(--muted); font-weight: 600; }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #0f141d; border: 1px solid var(--border); color: var(--muted); }
+    .muted { color: var(--muted); }
+    .flex { display: flex; gap: 8px; align-items: center; }
+    .right { margin-left: auto; }
+    .danger { color: var(--danger); }
+
+    .footer-note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+    @media (max-width: 900px) {
+      .row { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="flex">
+        <h1>NextDNS Analytics – Dark</h1>
+        <div class="right flex">
+          <button id="btnExport" class="secondary" title="Download visible tables as CSV">Export CSV</button>
+          <button id="btnReset" class="ghost" title="Clear stored credentials">Reset</button>
+          <a class="pill" href="https://nextdns.github.io/api" target="_blank" rel="noopener">API Docs</a>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="panel">
+          <label>API Key (stored in your browser only)</label>
+          <input id="apiKey" type="password" placeholder="NEXTDNS_API_KEY" autocomplete="off" />
+          <div class="footer-note">We store this in <code>localStorage</code> only for this page.</div>
+        </div>
+        <div class="panel">
+          <label>Profile</label>
+          <select id="profileSelect"></select>
+          <div class="footer-note">Choose a profile to load analytics.</div>
+        </div>
+        <div class="panel">
+          <label>Time Range</label>
+          <div class="flex">
+            <select id="range">
+              <option value="24h">Last 24 hours</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d" selected>Last 30 days</option>
+              <option value="custom">Custom…</option>
+            </select>
+            <input id="from" type="datetime-local" style="display:none" />
+            <input id="to" type="datetime-local" style="display:none" />
+          </div>
+          <div class="footer-note">Times shown in your local timezone (<span id="tz"></span>).</div>
+        </div>
+        <div>
+          <button id="btnLoad" style="width:100%; height:100%;">Load Analytics</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" style="padding-top: 14px; padding-bottom: 40px;">
+    <section class="row">
+      <div class="panel">
+        <div class="grid-3">
+          <div class="kpi"><div class="label">Total Queries</div><div id="kpiTotal" class="value">–</div></div>
+          <div class="kpi"><div class="label">Blocked</div><div id="kpiBlocked" class="value">–</div></div>
+          <div class="kpi"><div class="label">Threats</div><div id="kpiThreats" class="value">–</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <canvas id="chartQueries" height="120"></canvas>
+      </div>
+    </section>
+
+    <section class="row" style="margin-top:12px;">
+      <div class="panel">
+        <div class="flex">
+          <h3 style="margin:0;">Top Domains</h3>
+          <div class="right pill" id="totalDomains">–</div>
+        </div>
+        <canvas id="chartDomains" height="160" style="margin-top: 10px;"></canvas>
+        <div id="tableDomains"></div>
+      </div>
+      <div class="panel">
+        <div class="flex">
+          <h3 style="margin:0;">Top Clients</h3>
+          <div class="right pill" id="totalClients">–</div>
+        </div>
+        <canvas id="chartClients" height="160" style="margin-top: 10px;"></canvas>
+        <div id="tableClients"></div>
+      </div>
+    </section>
+
+    <section class="row" style="margin-top:12px;">
+      <div class="panel">
+        <div class="flex">
+          <h3 style="margin:0;">Block Reasons / Categories</h3>
+          <div class="right pill" id="totalReasons">–</div>
+        </div>
+        <canvas id="chartReasons" height="160" style="margin-top: 10px;"></canvas>
+        <div id="tableReasons"></div>
+      </div>
+      <div class="panel">
+        <div class="flex">
+          <h3 style="margin:0;">Top Apps / Services</h3>
+          <div class="right pill" id="totalApps">–</div>
+        </div>
+        <canvas id="chartApps" height="160" style="margin-top: 10px;"></canvas>
+        <div id="tableApps"></div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:12px;">
+      <div class="flex">
+        <h3 style="margin:0;">Raw API Response</h3>
+        <div class="right">
+          <button class="secondary" id="btnToggleRaw">Hide/Show</button>
+        </div>
+      </div>
+      <pre id="raw" style="max-height: 300px; overflow:auto; margin-top:10px;">Load analytics to see JSON…</pre>
+      <div class="footer-note">Handy for debugging fields if the API shape changes.</div>
+    </section>
+
+    <section class="panel" style="margin-top:12px;">
+      <h3 style="margin:0 0 10px 0;">Run Any Endpoint (advanced)</h3>
+      <div class="grid-2">
+        <div>
+          <label>HTTP Method</label>
+          <select id="method">
+            <option>GET</option>
+            <option>POST</option>
+            <option>PUT</option>
+            <option>PATCH</option>
+            <option>DELETE</option>
+          </select>
+        </div>
+        <div>
+          <label>Path (relative to https://api.nextdns.io)</label>
+          <input id="path" placeholder="/profiles/{profileId}/analytics" />
+        </div>
+        <div class="grid-1">
+          <label>Body (JSON)</label>
+          <textarea id="body" rows="4" placeholder='{"example": true}'></textarea>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="btnRun" style="width:100%">Run</button>
+        </div>
+      </div>
+      <pre id="runOut" style="max-height: 240px; overflow:auto; margin-top:10px;"></pre>
+    </section>
+
+    <div class="footer-note" style="margin-top: 16px;">
+      Note: This app runs entirely in your browser. Your API key never leaves your device. If you encounter CORS errors, they stem from the API server configuration; GitHub Pages can’t change CORS. In that case, consider a lightweight proxy you control.
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = 'https://api.nextdns.io';
+
+    // Elements
+    const el = (id) => document.getElementById(id);
+    const apiKeyEl = el('apiKey');
+    const profileSelect = el('profileSelect');
+    const rangeEl = el('range'); const fromEl = el('from'); const toEl = el('to');
+    const tzEl = el('tz');
+    const btnLoad = el('btnLoad');
+    const btnExport = el('btnExport');
+    const btnReset = el('btnReset');
+
+    const kpiTotal = el('kpiTotal');
+    const kpiBlocked = el('kpiBlocked');
+    const kpiThreats = el('kpiThreats');
+
+    const rawEl = el('raw');
+    const btnToggleRaw = el('btnToggleRaw');
+
+    const totalDomains = el('totalDomains');
+    const totalClients = el('totalClients');
+    const totalReasons = el('totalReasons');
+    const totalApps = el('totalApps');
+
+    const chartRefs = {};
+
+    tzEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+
+    // Storage
+    const store = {
+      get(){
+        try { return JSON.parse(localStorage.getItem('nextdns-spa') || '{}'); } catch { return {}; }
+      },
+      set(data){ localStorage.setItem('nextdns-spa', JSON.stringify(data)); }
+    };
+
+    // CSV Export helper
+    function toCSV(rows){
+      if(!rows || !rows.length) return '';
+      const headers = Object.keys(rows[0]);
+      const escape = (v) => ('"' + String(v ?? '').replace(/"/g,'""') + '"');
+      const out = [headers.map(escape).join(',')].concat(rows.map(r => headers.map(h => escape(r[h])).join(',')));
+      return out.join('\n');
+    }
+    function download(name, text){
+      const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    }
+
+    // API wrapper
+    async function api(path, {method='GET', body} = {}){
+      const key = apiKeyEl.value.trim();
+      if(!key) throw new Error('Missing API key');
+      const resp = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Accept': 'application/json',
+          ...(body ? {'Content-Type': 'application/json'} : {})
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if(!resp.ok){
+        const text = await resp.text().catch(()=> '');
+        throw new Error(`${resp.status} ${resp.statusText} — ${text}`);
+      }
+      const ct = resp.headers.get('content-type') || '';
+      return ct.includes('application/json') ? resp.json() : resp.text();
+    }
+
+    function applyRange(){
+      const now = dayjs();
+      let from = now.subtract(30,'day');
+      let to = now;
+      switch(rangeEl.value){
+        case '24h': from = now.subtract(24,'hour'); break;
+        case '7d': from = now.subtract(7,'day'); break;
+        case '30d': from = now.subtract(30,'day'); break;
+        case 'custom':
+          from = dayjs(fromEl.value);
+          to = dayjs(toEl.value);
+          break;
+      }
+      return { from: from.toISOString(), to: to.toISOString() };
+    }
+
+    function showCustomRangeIfNeeded(){
+      const show = rangeEl.value === 'custom';
+      fromEl.style.display = show ? '' : 'none';
+      toEl.style.display = show ? '' : 'none';
+      if(show && !fromEl.value && !toEl.value){
+        const now = dayjs();
+        fromEl.value = now.subtract(7,'day').format('YYYY-MM-DDTHH:mm');
+        toEl.value = now.format('YYYY-MM-DDTHH:mm');
+      }
+    }
+
+    function setStored(){
+      const s = store.get();
+      if(s.key) apiKeyEl.value = s.key;
+      if(s.profile) loadProfiles().then(()=> { profileSelect.value = s.profile; });
+      if(s.range) rangeEl.value = s.range;
+      showCustomRangeIfNeeded();
+    }
+
+    async function loadProfiles(){
+      profileSelect.innerHTML = '<option>Loading…</option>';
+      try{
+        const data = await api('/profiles');
+        const items = Array.isArray(data) ? data : (data?.data || []);
+        if(!items.length){ profileSelect.innerHTML = '<option value="">No profiles</option>'; return; }
+        profileSelect.innerHTML = items.map(p => `<option value="${p.id || p.profileId || p.profile || ''}">${p.name || p.displayName || p.id}</option>`).join('');
+      }catch(err){
+        profileSelect.innerHTML = `<option value="">Error: ${err.message}</option>`;
+      }
+    }
+
+    function ensureChart(id, cfg){
+      const ctx = document.getElementById(id).getContext('2d');
+      if(chartRefs[id]){ chartRefs[id].destroy(); }
+      chartRefs[id] = new Chart(ctx, cfg);
+    }
+
+    function formatNum(n){
+      if(n === undefined || n === null || isNaN(n)) return '–';
+      return new Intl.NumberFormat().format(n);
+    }
+
+    // Robust mappers – we don’t assume exact API shape; we try common patterns.
+    function pickTimeseries(obj){
+      // Try: obj.timeseries || obj.timeline || obj.series
+      const ts = obj?.timeseries || obj?.timeline || obj?.series || [];
+      // Each item could be {t, v} or {time, count} or {date, value}
+      return ts.map(it => ({
+        t: it.t || it.time || it.date || it.timestamp || it[0],
+        v: it.v || it.count || it.value || it.requests || it[1]
+      })).filter(x => x.t!==undefined && x.v!==undefined);
+    }
+    function topify(arr, labelKeyCandidates=['name','domain','client','id','label','key'], valueKeyCandidates=['count','value','requests','hits','blocked','queries']){
+      if(!Array.isArray(arr)) return [];
+      const lk = (o) => labelKeyCandidates.find(k=>k in o);
+      const vk = (o) => valueKeyCandidates.find(k=>k in o);
+      return arr.map(o => ({ label: o[lk(o)], value: Number(o[vk(o)]) || 0, raw: o }))
+               .filter(x => x.label !== undefined)
+               .sort((a,b)=>b.value - a.value);
+    }
+
+    function renderTable(rootId, rows, columns){
+      const root = document.getElementById(rootId);
+      if(!rows?.length){ root.innerHTML = '<div class="muted">No data.</div>'; return; }
+      const thead = '<thead><tr>' + columns.map(c=>`<th>${c.label}</th>`).join('') + '</tr></thead>';
+      const tbody = '<tbody>' + rows.map(r=>'<tr>'+columns.map(c=>`<td>${c.format?c.format(r[c.key], r):r[c.key]}</td>`).join('')+'</tr>').join('') + '</tbody>';
+      root.innerHTML = `<div style="overflow:auto; margin-top:10px;"><table>${thead}${tbody}</table></div>`;
+    }
+
+    function exportVisible(){
+      const blocks = [
+        {id:'Domains', rows: lastState.tables?.domains || []},
+        {id:'Clients', rows: lastState.tables?.clients || []},
+        {id:'Reasons', rows: lastState.tables?.reasons || []},
+        {id:'Apps', rows: lastState.tables?.apps || []},
+      ];
+      blocks.forEach(b => {
+        if(b.rows?.length){ download(`nextdns_${b.id.toLowerCase()}.csv`, toCSV(b.rows)); }
+      });
+    }
+
+    let lastState = { tables: {} };
+
+    async function loadAnalytics(){
+      const profileId = profileSelect.value;
+      if(!profileId){ alert('Select a profile first.'); return; }
+      const s = store.get();
+      store.set({ ...s, key: apiKeyEl.value.trim(), profile: profileId, range: rangeEl.value });
+
+      const {from, to} = applyRange();
+      // We try a generic analytics endpoint; many fields may exist.
+      const data = await api(`/profiles/${encodeURIComponent(profileId)}/analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+
+      // Show raw JSON (pretty)
+      rawEl.textContent = JSON.stringify(data, null, 2);
+
+      // KPIs – attempt to derive numbers
+      const totals = data?.totals || data?.summary || data || {};
+      const totalQ = totals.totalQueries || totals.queries || totals.total || totals.requests || 0;
+      const blockedQ = totals.blockedQueries || totals.blocked || totals.blockedRequests || 0;
+      const threatsQ = totals.threats || totals.securityEvents || 0;
+      kpiTotal.textContent = formatNum(totalQ);
+      kpiBlocked.textContent = formatNum(blockedQ);
+      kpiThreats.textContent = formatNum(threatsQ);
+
+      // Time-series chart
+      const ts = pickTimeseries(data);
+      if(ts.length){
+        ensureChart('chartQueries', {
+          type: 'line',
+          data: {
+            labels: ts.map(x => dayjs(x.t).format('MMM D HH:mm')),
+            datasets: [{ label: 'Queries', data: ts.map(x => x.v), tension:.3, fill:false }]
+          },
+          options: { responsive:true, plugins: { legend: { labels: { color: '#c9d4e3' } } }, scales: { x: { ticks: { color:'#8894a6' } }, y:{ ticks:{ color:'#8894a6' } } } }
+        });
+      } else {
+        ensureChart('chartQueries', { type:'bar', data:{ labels:['No series'], datasets:[{label:'Queries', data:[0]}] } });
+      }
+
+      // Top lists – try common keys
+      const topDomains = topify(data.topDomains || data.domains || data.top?.domains || []);
+      const topClients = topify(data.topClients || data.clients || data.top?.clients || []);
+      const reasons    = topify(data.blockReasons || data.reasons || data.top?.reasons || data.categories || []);
+      const apps       = topify(data.topApps || data.apps || data.services || data.top?.apps || []);
+
+      totalDomains.textContent = topDomains.length ? `${formatNum(topDomains.reduce((a,b)=>a+b.value,0))}` : '–';
+      totalClients.textContent = topClients.length ? `${formatNum(topClients.reduce((a,b)=>a+b.value,0))}` : '–';
+      totalReasons.textContent = reasons.length ? `${formatNum(reasons.reduce((a,b)=>a+b.value,0))}` : '–';
+      totalApps.textContent    = apps.length ? `${formatNum(apps.reduce((a,b)=>a+b.value,0))}` : '–';
+
+      ensureChart('chartDomains', {
+        type: 'bar',
+        data: { labels: topDomains.slice(0,10).map(x=>x.label), datasets: [{ label: 'Queries', data: topDomains.slice(0,10).map(x=>x.value) }] },
+        options: { indexAxis:'y', plugins: { legend: { labels: { color: '#c9d4e3' } } }, scales: { x:{ ticks:{ color:'#8894a6' } }, y:{ ticks:{ color:'#8894a6' } } } }
+      });
+      ensureChart('chartClients', {
+        type: 'bar',
+        data: { labels: topClients.slice(0,10).map(x=>x.label), datasets: [{ label: 'Queries', data: topClients.slice(0,10).map(x=>x.value) }] },
+        options: { indexAxis:'y', plugins: { legend: { labels: { color: '#c9d4e3' } } }, scales: { x:{ ticks:{ color:'#8894a6' } }, y:{ ticks:{ color:'#8894a6' } } } }
+      });
+      ensureChart('chartReasons', {
+        type: 'doughnut',
+        data: { labels: reasons.slice(0,8).map(x=>x.label), datasets: [{ label: 'Blocked', data: reasons.slice(0,8).map(x=>x.value) }] },
+        options: { plugins: { legend: { labels: { color: '#c9d4e3' } } } }
+      });
+      ensureChart('chartApps', {
+        type: 'doughnut',
+        data: { labels: apps.slice(0,8).map(x=>x.label), datasets: [{ label: 'Requests', data: apps.slice(0,8).map(x=>x.value) }] },
+        options: { plugins: { legend: { labels: { color: '#c9d4e3' } } } }
+      });
+
+      // Tables – include value and share
+      function rowsWithShare(list){
+        const total = list.reduce((a,b)=>a+b.value,0) || 1;
+        return list.map(x => ({
+          label: x.label,
+          value: x.value,
+          share: ((x.value/total)*100).toFixed(2) + '%'
+        }));
+      }
+      const domRows = rowsWithShare(topDomains).slice(0,50);
+      const cliRows = rowsWithShare(topClients).slice(0,50);
+      const reaRows = rowsWithShare(reasons).slice(0,50);
+      const appRows = rowsWithShare(apps).slice(0,50);
+
+      renderTable('tableDomains', domRows, [
+        {key:'label', label:'Domain'},
+        {key:'value', label:'Queries', format:(v)=>formatNum(v)},
+        {key:'share', label:'Share'}
+      ]);
+      renderTable('tableClients', cliRows, [
+        {key:'label', label:'Client'},
+        {key:'value', label:'Queries', format:(v)=>formatNum(v)},
+        {key:'share', label:'Share'}
+      ]);
+      renderTable('tableReasons', reaRows, [
+        {key:'label', label:'Reason/Category'},
+        {key:'value', label:'Blocked', format:(v)=>formatNum(v)},
+        {key:'share', label:'Share'}
+      ]);
+      renderTable('tableApps', appRows, [
+        {key:'label', label:'App/Service'},
+        {key:'value', label:'Requests', format:(v)=>formatNum(v)},
+        {key:'share', label:'Share'}
+      ]);
+
+      lastState.tables = { domains: domRows, clients: cliRows, reasons: reaRows, apps: appRows };
+    }
+
+    async function runAny(){
+      const method = el('method').value;
+      const path = el('path').value.trim() || '/profiles';
+      const bodyRaw = el('body').value.trim();
+      let body = undefined;
+      if(bodyRaw){ try{ body = JSON.parse(bodyRaw); }catch(e){ alert('Body is not valid JSON.'); return; } }
+      try{
+        const out = await api(path, {method, body});
+        el('runOut').textContent = typeof out === 'string' ? out : JSON.stringify(out, null, 2);
+      }catch(err){ el('runOut').textContent = 'Error: '+err.message; }
+    }
+
+    // Events
+    btnLoad.addEventListener('click', loadAnalytics);
+    btnExport.addEventListener('click', exportVisible);
+    btnReset.addEventListener('click', ()=>{ localStorage.removeItem('nextdns-spa'); location.reload(); });
+    btnToggleRaw.addEventListener('click', ()=>{ rawEl.style.display = rawEl.style.display === 'none' ? '' : 'none'; });
+    rangeEl.addEventListener('change', showCustomRangeIfNeeded);
+    el('btnRun').addEventListener('click', runAny);
+
+    // Auto-load profiles if API key is present
+    apiKeyEl.addEventListener('change', ()=>{ if(apiKeyEl.value.trim()) loadProfiles(); });
+
+    // Initialize
+    setStored();
+    if(apiKeyEl.value.trim()) loadProfiles();
+  </script>
+</body>
+</html>
