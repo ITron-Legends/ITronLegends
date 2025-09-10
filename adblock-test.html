@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Adblock / Tracker Ping Tester</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding: 20px; max-width:800px; }
+    h1 { font-size: 1.3rem; margin-bottom: 0.2rem; }
+    p { margin-top: 0; color: #444; }
+    .controls { margin: 12px 0; }
+    button { padding: 8px 12px; margin-right: 8px; border-radius: 8px; border: 1px solid #ccc; background:#f7f7f7; cursor:pointer; }
+    button:active { transform: translateY(1px); }
+    #log { margin-top:12px; height:220px; overflow:auto; border:1px solid #eee; padding:8px; background:#fafafa; font-family: monospace; font-size: 12px; }
+    label { display:inline-block; margin-right:8px; }
+    input[type="checkbox"] { margin-right:6px; }
+    .small { font-size: 0.9rem; color:#666; }
+  </style>
+</head>
+<body>
+  <h1>Adblock / Tracker Ping Tester</h1>
+  <p class="small">Pings a set of commonly-blocked tracker endpoints every 1 second. Click <strong>Start</strong> to begin. Use only on machines you control.</p>
+
+  <div class="controls">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <label><input id="useImageFallback" type="checkbox" checked />Use Image fallback if fetch fails</label>
+    <label style="margin-left:12px"><input id="verbose" type="checkbox" />Verbose logging</label>
+  </div>
+
+  <div>
+    <strong>Trackers</strong>
+    <p class="small">You can edit the list directly in the page source. These are common domains used by analytics/ads (intended for testing).</p>
+    <pre id="trackers" style="background:#fff;border:1px solid #eee;padding:8px;">
+[
+  "https://www.google-analytics.com/collect?v=1&tid=UA-000000-2&cid=test&t=pageview",
+  "https://www.googletagservices.com/tag/js/gpt.js",
+  "https://www.googleadservices.com/pagead/conversion/",
+  "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",
+  "https://stats.g.doubleclick.net/dc.js",
+  "https://px.ads.linkedin.com/collect",
+  "https://connect.facebook.net/en_US/fbevents.js",
+  "https://www.facebook.com/tr/",
+  "https://bat.bing.com/action/0?ti=000000",
+  "https://ads.twitter.com/collect",
+  "https://cm.g.doubleclick.net/pixel",
+  "https://ads.yahoo.com/imp"
+]
+    </pre>
+  </div>
+
+  <div id="log"></div>
+
+  <script>
+    // Parse tracker list from the <pre> element so user can edit in-browser if desired
+    function getTrackerList() {
+      try {
+        const raw = document.getElementById('trackers').innerText;
+        const list = JSON.parse(raw);
+        if (!Array.isArray(list)) throw new Error('Trackers must be an array');
+        return list;
+      } catch (e) {
+        log('ERROR parsing trackers list. Revert to default.', true);
+        return [
+          "https://www.google-analytics.com/collect?v=1&tid=UA-000000-2&cid=test&t=pageview",
+          "https://www.googletagservices.com/tag/js/gpt.js",
+          "https://www.googleadservices.com/pagead/conversion/",
+          "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",
+          "https://stats.g.doubleclick.net/dc.js",
+          "https://px.ads.linkedin.com/collect",
+          "https://connect.facebook.net/en_US/fbevents.js",
+          "https://www.facebook.com/tr/",
+          "https://bat.bing.com/action/0?ti=000000",
+          "https://ads.twitter.com/collect",
+          "https://cm.g.doubleclick.net/pixel",
+          "https://ads.yahoo.com/imp"
+        ];
+      }
+    }
+
+    const logEl = document.getElementById('log');
+    function log(msg, isError=false) {
+      const time = new Date().toLocaleTimeString();
+      const line = `[${time}] ${msg}`;
+      const node = document.createElement('div');
+      if (isError) node.style.color = 'crimson';
+      node.textContent = line;
+      logEl.appendChild(node);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    let intervalId = null;
+
+    async function pingUrl(url) {
+      // Try fetch with no-cors so the browser will still send the request (response is opaque)
+      try {
+        await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', keepalive: true });
+        if (document.getElementById('verbose').checked) log(`fetch -> ${url}`);
+        return true;
+      } catch (e) {
+        if (document.getElementById('verbose').checked) log(`fetch failed -> ${url} (${e.message})`);
+        return false;
+      }
+    }
+
+    function imagePing(url) {
+      return new Promise((resolve) => {
+        try {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          // add a cache-busting query so requests actually go out
+          const sep = url.includes('?') ? '&' : '?';
+          img.src = url + sep + 'cb=' + Date.now();
+          // after 4s, resolve in case nothing happens
+          setTimeout(() => resolve(false), 4000);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    }
+
+    async function tick() {
+      const list = getTrackerList();
+      // send pings in parallel but don't pile up
+      await Promise.all(list.map(async (u) => {
+        // add a tiny cache buster for each request
+        const cb = (u.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+        const url = u + cb;
+        const ok = await pingUrl(url);
+        if (!ok && document.getElementById('useImageFallback').checked) {
+          const fb = await imagePing(u);
+          if (fb) {
+            if (document.getElementById('verbose').checked) log(`image -> ${u}`);
+          } else {
+            if (document.getElementById('verbose').checked) log(`fallback failed -> ${u}`);
+          }
+        }
+      }));
+      // show heartbeat when not verbose
+      if (!document.getElementById('verbose').checked) {
+        log(`Pinged ${getTrackerList().length} endpoints`);
+      }
+    }
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      if (intervalId) return;
+      log('Starting ping loop (1s interval).');
+      // run immediately once, then every 1s
+      tick().catch(e => log('Tick error: ' + e.message, true));
+      intervalId = setInterval(() => {
+        tick().catch(e => log('Tick error: ' + e.message, true));
+      }, 1000);
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        log('Stopped ping loop.');
+      }
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+    });
+
+    // small safety: stop when page is hidden to avoid running in background
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        log('Page hidden — ping loop paused for safety.');
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+      }
+    });
+  </script>
+</body>
+</html>
